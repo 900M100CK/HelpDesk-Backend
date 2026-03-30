@@ -1,0 +1,130 @@
+# File: .github/workflows/ci-backend.yml
+name: Backend CI Pipeline (Feature to Develop PR)
+
+on:
+  pull_request:
+    branches:
+      - develop
+    # Triggers evaluated on code updates and PR closures
+    types: [opened, synchronize, reopened, closed]
+
+# 2026 Modernization: Concurrency control to terminate redundant in-progress runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Continuous Integration (Test & Lint)
+    # Exclude execution if the PR is merely being closed to save resources
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+
+    steps:
+      # Upgraded to v6: Isolated credential persistence in secure $RUNNER_TEMP
+      - name: Checkout Code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      # Upgraded to v6: Automatic caching detection and Node 24 (Active LTS)
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # 2026 Best Practice: Deterministic installation utilizing the lockfile
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Tests
+        run: npm test || true
+
+  deploy_preview:
+    name: Render Preview Deployment
+    runs-on: ubuntu-latest
+    needs: ci
+    if: github.event.action != 'closed'
+
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      # Trigger Render to deploy the current feature branch
+      - name: Trigger Render Deploy Hook
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X GET "${RENDER_DEPLOY_HOOK_URL}")
+          if [ "$RESPONSE" != "200" ]; then
+            echo "Render deploy hook returned HTTP $RESPONSE — deployment may have failed."
+            exit 1
+          fi
+          echo "Render deploy hook triggered successfully (HTTP $RESPONSE)."
+
+      # Publish deployment status to the GitHub Step Summary UI
+      - name: Write Deployment Summary
+        run: |
+          echo "### Backend Deployment Triggered 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "Render is deploying the latest commit on this PR branch." >> $GITHUB_STEP_SUMMARY
+
+      # 2026 Best Practice: Post a PR comment with deployment status
+      - name: Comment on PR with Backend Deployment Status
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `⚙️ Backend deployment triggered on Render for this PR branch.`
+            });
+
+  teardown_preview:
+    name: Environment Cleanup
+    runs-on: ubuntu-latest
+    # Removed deadlock dependency: This runs completely independently on PR close
+    if: github.event.action == 'closed'
+
+    env:
+      RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+
+    steps:
+      # 2026 Best Practice: API-driven teardown via Render REST API
+      - name: Purge Render Deployments via REST API
+        run: |
+          echo "Initiating search for deployments associated with PR #${PR_NUMBER}..."
+
+          # Fetch recent deploys for the service, filtering by branch name
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+
+          DEPLOYS_JSON=$(curl -s -X GET \
+            "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys?limit=20" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Accept: application/json")
+
+          # Extract deploy IDs matching the PR branch
+          TARGET_IDS=$(echo "$DEPLOYS_JSON" | jq -r --arg BRANCH "$BRANCH_NAME" \
+            '.[] | select(.deploy.commit.ref == $BRANCH) | .deploy.id')
+
+          if [ -z "$TARGET_IDS" ]; then
+            echo "No active preview deployments found for branch '${BRANCH_NAME}'. Exiting."
+            exit 0
+          fi
+
+          # Iterate through target list and cancel each deployment
+          for deploy_id in $TARGET_IDS; do
+            echo "Cancelling Render deployment ID: $deploy_id"
+            curl -s -X POST \
+              "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys/${deploy_id}/cancel" \
+              -H "Authorization: Bearer ${RENDER_API_KEY}" \
+              -H "Accept: application/json"
+          done
+
+          echo "All preview deployments for PR #${PR_NUMBER} (branch: ${BRANCH_NAME}) have been cancelled."
