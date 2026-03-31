@@ -60,26 +60,11 @@ jobs:
       - name: Trigger Render Deploy Hook
         run: |
           BRANCH="${{ github.head_ref }}"
-          URL="${RENDER_DEPLOY_HOOK_URL}?branch=${BRANCH}"
-
-          echo "Triggering Render deploy for branch: $BRANCH"
-          echo "URL: $URL"
-
-          # Retry logic (max 3 attempts)
-          for i in 1 2 3; do
-            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X GET "$URL")
-
-            if [ "$RESPONSE" = "200" ]; then
-              echo "✅ Render deploy hook triggered successfully (HTTP $RESPONSE)"
-              exit 0
-            fi
-
-            echo "⚠️ Attempt $i failed (HTTP $RESPONSE). Retrying in 3s..."
-            sleep 3
-          done
-
-          echo "❌ Render deploy hook failed after 3 attempts"
-          exit 1
+          if [[ "$RENDER_DEPLOY_HOOK_URL" == *"?"* ]]; then
+            URL="${RENDER_DEPLOY_HOOK_URL}&branch=${BRANCH}"
+          else
+            URL="${RENDER_DEPLOY_HOOK_URL}?branch=${BRANCH}"
+          fi
 
       # Publish deployment status to the GitHub Step Summary UI
       - name: Write Deployment Summary
