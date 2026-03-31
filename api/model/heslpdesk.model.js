@@ -1,5 +1,9 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8d9008197f247e4323873f34ea5231941360e5eb
 const HelpdeskSchema = new Schema({
     Key: {
         type: String,
