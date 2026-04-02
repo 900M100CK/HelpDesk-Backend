@@ -1,13 +1,31 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const HelpdeskSchema = new Schema({
-    Key: {
+    key: {
         type: String,
-        required: 'kindly enter the key'
+        required: [true, 'kindly enter the key'],
+        unique: true,
+        trim: true,
+        uppercase: true
     },
-    Value: {
+    value: {
         type: String,
-        required: 'kindly enter the value'
+        required: [true, 'kindly enter the value'],
+        trim: true
+    },
+    category: {
+        type: String,
+        enum: ['general', 'technical', 'billing', 'IT support', 'Account'],
+        default: 'general'
+    },
+    priority: {
+        type: String,
+        enum: ['low', 'medium', 'high'],
+        default: 'medium'
+    },
+
+    notes: {
+        type: String
     },
     created_date: { 
         type: Date,
