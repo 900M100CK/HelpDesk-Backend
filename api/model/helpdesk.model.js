@@ -6,7 +6,8 @@ const HelpdeskSchema = new Schema({
         required: [true, 'kindly enter the key'],
         unique: true,
         trim: true,
-        uppercase: true
+        uppercase: true,
+        index: true
     },
     value: {
         type: String,
@@ -16,7 +17,8 @@ const HelpdeskSchema = new Schema({
     category: {
         type: String,
         enum: ['general', 'technical', 'billing', 'IT support', 'Account'],
-        default: 'general'
+        default: 'general',
+        lowercase: true
     },
     priority: {
         type: String,
@@ -25,16 +27,14 @@ const HelpdeskSchema = new Schema({
     },
 
     notes: {
-        type: String
-    },
-    created_date: { 
-        type: Date,
-        default: Date.now
+        type: String,
+        maxlength: [1000, 'Notes cannot exceed 1000 characters']
     },
     status: {
         type: String,
-        enum: ['open', 'in_progress', 'closed'],
+        enum: ['open', 'in-progress', 'closed'],
         default: 'open'
-    }
+    },
+    timestamps: true
 });
-module.exports = mongoose.model('helpdesk', HelpdeskSchema);
+module.exports = mongoose.model('Helpdesk', HelpdeskSchema);
