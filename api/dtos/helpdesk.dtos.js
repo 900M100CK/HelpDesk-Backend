@@ -7,7 +7,7 @@ class HelpDeskDTO {
     }
     static validate (data) {
         
-        const error = [];
+        const errors = [];
         if (!data.key || typeof data.key !== 'string') {
             errors.push('Key is required and must be a string');
         }
