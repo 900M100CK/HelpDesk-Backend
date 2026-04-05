@@ -16,7 +16,7 @@ const HelpdeskSchema = new Schema({
     },
     category: {
         type: String,
-        enum: ['general', 'technical', 'billing', 'IT support', 'Account'],
+        enum: ['general', 'technical', 'billing', 'it support', 'account'],
         default: 'general',
         lowercase: true
     },
@@ -34,7 +34,7 @@ const HelpdeskSchema = new Schema({
         type: String,
         enum: ['open', 'in-progress', 'closed'],
         default: 'open'
-    },
+    },}, {
     timestamps: true
 });
 module.exports = mongoose.model('Helpdesk', HelpdeskSchema);
