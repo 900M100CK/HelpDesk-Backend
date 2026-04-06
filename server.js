@@ -9,7 +9,11 @@ const port = process.env.PORT || 3000;
 const mongoUri = process.env.MONGO_URI;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: "https://help-desk-frontend-theta.vercel.app",
+  credentials: true
+}));
+
 app.use(express.json());
 
 // Basic API route
