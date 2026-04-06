@@ -16,6 +16,11 @@ app.use(cors({
 
 app.use(express.json());
 
+// Health check
+app.get('/', (req, res) => {
+  res.json({ success: true, message: 'Server is running!' });
+});
+
 // Basic API route
 app.use('/api/helpdesk', helpdeskRoutes);
 
