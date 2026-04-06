@@ -10,7 +10,7 @@ const mongoUri = process.env.MONGO_URI;
 
 // Middleware
 app.use(cors({
-  origin: "https://help-desk-frontend-theta.vercel.app",
+  origin: true,
   credentials: true
 }));
 
